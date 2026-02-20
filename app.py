@@ -70,35 +70,33 @@ with aba_c:
                 st.balloons()
                 st.info("Lista liberada! Agora envie o link para seus fornecedores.")
 
-# --- ABA 2: PAINEL DO FORNECEDOR (LIVRE PARA PREENCHIMENTO) ---
+# --- ABA 2: PAINEL DO FORNECEDOR (VERSÃO COM PRODUTOS FIXOS) ---
 with aba_f:
     st.subheader("📩 Espaço do Fornecedor")
-    if not st.session_state.itens_para_cotar:
-        st.warning("⚠️ Nenhuma cotação ativa no momento. Aguarde o comprador liberar a lista.")
-    else:
-        with st.form("form_fornecedor"):
-            col_f1, col_f2 = st.columns(2)
-            nome_forn = col_f1.text_input("Seu Nome/Empresa:")
-            condicao = col_f2.selectbox("Condição Comercial:", ["NF Normal", "Líquido", "Bonificado"])
-            
-            st.markdown("---")
-            st.write("Preencha os preços unitários abaixo:")
-            
-            temp_precos = []
-            for item in st.session_state.itens_para_cotar:
-                c1, c2 = st.columns([2, 1])
-                c1.write(f"**{item}**")
-                p = c2.number_input(f"Preço (R$)", min_value=0.0, step=0.01, key=f"p_{item}_{nome_forn}")
-                obs = st.text_input(f"Observação sobre {item}", key=f"o_{item}_{nome_forn}")
-                if p > 0:
-                    temp_precos.append({'Fornecedor': nome_forn, 'Produto': item, 'Preço': p, 'Tipo': condicao, 'Obs': obs})
-            
-            if st.form_submit_button("ENVIAR COTAÇÃO OFICIAL"):
-                if nome_forn:
-                    st.session_state.historico_cotacoes = pd.concat([st.session_state.historico_cotacoes, pd.DataFrame(temp_precos)], ignore_index=True)
-                    st.success(f"Obrigado, {nome_forn}! Seus preços foram enviados com sucesso.")
-                else:
-                    st.error("Por favor, preencha o nome da sua empresa.")
+    
+    # LISTA FIXA: Adicione aqui os produtos que você quer que apareçam SEMPRE
+    lista_fixa_produtos = ["Arroz 5kg", "Feijão Carioca", "Óleo de Soja", "Açúcar 1kg"]
+    
+    # O sistema verifica se você liberou algo novo, se não, mostra a lista fixa
+    itens_exibicao = st.session_state.itens_para_cotar if st.session_state.itens_para_cotar else lista_fixa_produtos
+
+    with st.form("form_fornecedor"):
+        nome_f = st.text_input("Sua Empresa:")
+        st.write("Preencha os preços abaixo:")
+        temp_dados = []
+        for item in itens_exibicao:
+            col1, col2 = st.columns([2, 1])
+            col1.write(f"**{item}**")
+            valor = col2.number_input(f"Preço R$", min_value=0.0, step=0.01, key=f"forn_{item}")
+            if valor > 0:
+                temp_dados.append({'Fornecedor': nome_f, 'Produto': item, 'Preço': valor})
+        
+        if st.form_submit_button("ENVIAR PREÇOS"):
+            if nome_f:
+                st.session_state.historico_cotacoes = pd.concat([st.session_state.historico_cotacoes, pd.DataFrame(temp_dados)], ignore_index=True)
+                st.success("Preços enviados com sucesso!")
+            else:
+                st.error("Por favor, identifique sua empresa.")
 
 # --- ABA 3: RELATÓRIO FINAL (PROTEGIDA POR SENHA) ---
 with aba_r:
@@ -130,3 +128,4 @@ with aba_r:
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             pedido_final.to_excel(writer, index=False)
         st.download_button(f"📥 Baixar Pedido: {forn_ver}", output.getvalue(), f"pedido_{forn_ver}.xlsx")
+

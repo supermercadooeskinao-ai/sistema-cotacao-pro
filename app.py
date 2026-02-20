@@ -1,102 +1,96 @@
 import streamlit as st
 import pandas as pd
-import io
+import time
+import urllib.parse
+import re
 
 # --- 1. CONFIGURAÇÃO ---
-st.set_page_config(page_title="PRO-SUPPLY | Cotação Seletiva", layout="wide")
+st.set_page_config(page_title="PRO-SUPPLY | Smart Analytics", layout="wide")
 
-# SUBSTISTUA PELO SEU LINK DO GOOGLE PUBLICADO COMO CSV
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3Extm7GnoMba57gboYO9Lb6s-mUUh10pQF0bH_Wu2Xffq6UfKnAf4iAjxROAtC_iAC2vEM0rYLf9p/pub?output=csv"
+URL_PLANILHA = "COLE_AQUI_O_LINK_DO_GOOGLE_CSV"
+TELEFONE_DESTINO = "5511999999999" 
 
 def carregar_dados_google():
     try:
-        df = pd.read_csv(URL_PLANILHA)
-        # Limpar espaços em branco dos nomes das colunas
+        url_dinamica = f"{URL_PLANILHA}?cache={int(time.time())}"
+        df = pd.read_csv(url_dinamica)
         df.columns = [c.strip() for c in df.columns]
         return df
     except:
         return pd.DataFrame(columns=["Produto", "Selecionado"])
 
-# --- 2. ESTADO DO SISTEMA ---
-if 'logado' not in st.session_state: st.session_state.logado = False
-if 'historico' not in st.session_state: 
-    st.session_state.historico = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
+# Inicializa o banco de dados temporário para o Relatório
+if 'base_analise' not in st.session_state:
+    st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
 
-st.markdown("<h1 style='text-align: center; color: #58a6ff;'>PRO-SUPPLY SMART ANALYTICS</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>PRO-SUPPLY SMART ANALYTICS</h1>", unsafe_allow_html=True)
 
-aba_f, aba_c, aba_r = st.tabs(["📩 PAINEL DO FORNECEDOR", "🔐 ÁREA DO CLIENTE", "📊 RELATÓRIO FINAL"])
+aba_f, aba_c, aba_r = st.tabs(["📩 FORNECEDOR", "🔐 ÁREA DO CLIENTE", "📊 RELATÓRIO FINAL"])
 
-# Carregar dados do Google
 df_google = carregar_dados_google()
+itens_para_cotar = df_google[df_google['Selecionado'].notna()]['Produto'].tolist() if not df_google.empty else []
 
-# Filtrar apenas os produtos que o cliente marcou com algo na coluna 'Selecionado'
-# O .notna() verifica se a célula não está vazia
-itens_para_cotar = []
-if not df_google.empty and 'Selecionado' in df_google.columns:
-    itens_para_cotar = df_google[df_google['Selecionado'].notna()]['Produto'].tolist()
-
-# --- ABA 1: FORNECEDOR (VÊ APENAS O QUE FOI FILTRADO) ---
+# --- ABA 1: FORNECEDOR (Gera o texto formatado) ---
 with aba_f:
-    st.subheader("📩 Preencher Cotação Atual")
-    
+    st.subheader("📩 Enviar Preços")
     if not itens_para_cotar:
-        st.warning("⚠️ No momento não há itens liberados para cotação. Aguarde o comprador.")
+        st.warning("Nenhum item selecionado para cotação.")
     else:
-        with st.form("form_fornecedor"):
-            nome_forn = st.text_input("Nome da sua Empresa:")
-            st.write(f"Você tem {len(itens_para_cotar)} itens para cotar hoje:")
-            
-            temp_precos = []
+        with st.form("form_wa"):
+            nome_f = st.text_input("Empresa Fornecedora:")
+            dados = {}
             for item in itens_para_cotar:
                 col1, col2 = st.columns([3, 1])
-                col1.write(f"📦 **{item}**")
-                valor = col2.number_input(f"Preço R$", min_value=0.0, step=0.01, key=f"f_{item}")
-                if valor > 0:
-                    temp_precos.append({'Fornecedor': nome_forn, 'Produto': item, 'Preço': valor})
+                col1.write(f"📦 {item}")
+                v = col2.number_input(f"R$", min_value=0.0, step=0.01, key=f"f_{item}")
+                if v > 0: dados[item] = v
             
-            if st.form_submit_button("ENVIAR COTAÇÃO"):
-                if nome_forn and temp_precos:
-                    st.session_state.historico = pd.concat([st.session_state.historico, pd.DataFrame(temp_precos)], ignore_index=True)
-                    st.success("✅ Enviado com sucesso!")
-                else:
-                    st.error("Preencha o nome e os preços.")
+            if st.form_submit_button("GERAR LINK WHATSAPP"):
+                if nome_f and dados:
+                    msg = f"COTAÇÃO_{nome_f}\n" # Tag para o sistema reconhecer
+                    for p, v in dados.items():
+                        msg += f"{p}: {v}\n"
+                    link = f"https://wa.me/{TELEFONE_DESTINO}?text={urllib.parse.quote(msg)}"
+                    st.success("Clique abaixo:")
+                    st.link_button("🟢 ENVIAR VIA WHATSAPP", link)
 
-# --- ABA 2: ÁREA DO CLIENTE ---
+# --- ABA 2: ÁREA DO CLIENTE (Onde a mágica acontece) ---
 with aba_c:
-    if not st.session_state.logado:
-        senha = st.text_input("Chave de Acesso:", type="password")
-        if st.button("Entrar"):
-            if senha == "PRO2026":
-                st.session_state.logado = True
-                st.rerun()
-    else:
-        st.success("Conectado ao Gerenciador Google")
-        st.write("### 📝 Lista Geral de Produtos")
-        st.write("Para escolher o que o fornecedor vê, coloque um 'X' na coluna **Selecionado** da sua planilha Google.")
-        st.dataframe(df_google, use_container_width=True)
-        
-        st.write("### 🎯 Itens que o Fornecedor está vendo agora:")
-        st.info(itens_para_cotar if itens_para_cotar else "Nenhum item selecionado na planilha.")
-        
-        if st.button("Sair"):
-            st.session_state.logado = False
-            st.rerun()
+    st.subheader("📥 Receber Cotações")
+    st.write("Cole aqui o texto que você recebeu no WhatsApp para analisar:")
+    texto_recebido = st.text_area("Cole a mensagem aqui:", height=150)
+    
+    if st.button("📥 PROCESSAR COTAÇÃO"):
+        if texto_recebido:
+            try:
+                # Lógica para transformar o texto em dados de novo
+                linhas = texto_recebido.split('\n')
+                forn_nome = linhas[0].replace("COTAÇÃO_", "").strip()
+                novos_dados = []
+                for l in linhas[1:]:
+                    if ":" in l:
+                        p, v = l.split(":")
+                        novos_dados.append({'Fornecedor': forn_nome, 'Produto': p.strip(), 'Preço': float(v.strip())})
+                
+                df_novos = pd.DataFrame(novos_dados)
+                st.session_state.base_analise = pd.concat([st.session_state.base_analise, df_novos], ignore_index=True)
+                st.success(f"Cotação de {forn_nome} adicionada ao relatório!")
+            except:
+                st.error("Formato de texto inválido. Cole a mensagem exatamente como veio do WhatsApp.")
 
-# --- ABA 3: RELATÓRIO ---
+# --- ABA 3: RELATÓRIO FINAL (Inteligência de Menor Preço) ---
 with aba_r:
-    if not st.session_state.logado:
-        st.error("Acesso restrito.")
-    elif st.session_state.historico.empty:
-        st.info("Aguardando fornecedores...")
+    st.subheader("📊 Comparativo e Vencedores")
+    if st.session_state.base_analise.empty:
+        st.info("Aguardando você processar as cotações na aba 'Área do Cliente'.")
     else:
-        st.subheader("📊 Menor Preço por Item")
-        df_total = st.session_state.historico
-        vencedores = df_total.loc[df_total.groupby('Produto')['Preço'].idxmin()]
+        df_final = st.session_state.base_analise
+        # Calcula o vencedor por produto
+        vencedores = df_final.loc[df_final.groupby('Produto')['Preço'].idxmin()]
+        
+        st.write("### 🏆 Melhores Preços Encontrados:")
         st.dataframe(vencedores, use_container_width=True)
         
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            vencedores.to_excel(writer, index=False)
-        st.download_button("📥 Baixar Pedido", output.getvalue(), "pedido_final.xlsx")
-
-
+        if st.button("Limpar Relatório e Começar Novo"):
+            st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
+            st.rerun()

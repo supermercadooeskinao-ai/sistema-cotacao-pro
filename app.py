@@ -6,7 +6,7 @@ import io
 st.set_page_config(page_title="PRO-SUPPLY | Cotação Seletiva", layout="wide")
 
 # SUBSTISTUA PELO SEU LINK DO GOOGLE PUBLICADO COMO CSV
-URL_PLANILHA = "COLE_AQUI_O_LINK_DO_GOOGLE_CSV"
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3Extm7GnoMba57gboYO9Lb6s-mUUh10pQF0bH_Wu2Xffq6UfKnAf4iAjxROAtC_iAC2vEM0rYLf9p/pub?output=csv"
 
 def carregar_dados_google():
     try:
@@ -98,4 +98,5 @@ with aba_r:
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             vencedores.to_excel(writer, index=False)
         st.download_button("📥 Baixar Pedido", output.getvalue(), "pedido_final.xlsx")
+
 

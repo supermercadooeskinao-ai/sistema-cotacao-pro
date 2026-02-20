@@ -21,7 +21,8 @@ try:
     
     itens_ativos = df_prod[df_prod['Selecionado'].notna()]['Produto'].tolist()
 except Exception as e:
-    st.error("Erro ao conectar com a planilha. Verifique se as abas 'Produtos' e 'Respostas' existem e se os Secrets estão corretos.")
+    except Exception as e:
+    st.error(f"Erro Real: {e}")
     st.stop()
 
 aba_f, aba_c = st.tabs(["📩 PORTAL DO FORNECEDOR", "📊 ÁREA DO CLIENTE"])
@@ -76,3 +77,4 @@ with aba_c:
             with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
                 pedido.to_excel(writer, index=False)
             st.download_button(f"📥 Baixar Pedido {escolha}", buf.getvalue(), f"pedido_{escolha}.xlsx")
+

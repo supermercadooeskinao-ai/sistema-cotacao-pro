@@ -10,10 +10,8 @@ try:
     conn = st.connection("gsheets", type=GSheetsConnection)
     df_prod = conn.read(worksheet="Produtos")
     df_resp = conn.read(worksheet="Respostas")
-    df_prod.columns = [c.strip().capitalize() for c in df_prod.columns]
-    itens_ativos = df_prod[df_prod['Selecionado'].notna()]['Produto'].tolist()
 except Exception as e:
-    st.error(f"Erro de Conexão: {e}")
+    st.error("Erro ao carregar os dados da planilha. Verifique os Secrets.")
     st.stop()
 
 aba_f, aba_c = st.tabs(["📩 PORTAL DO FORNECEDOR", "📊 ÁREA DO CLIENTe"])
@@ -57,4 +55,5 @@ with aba_c:
             with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
                 pedido.to_excel(writer, index=False)
             st.download_button(f"📥 Baixar Pedido {escolha}", buf.getvalue(), f"pedido_{escolha}.xlsx")
+
 

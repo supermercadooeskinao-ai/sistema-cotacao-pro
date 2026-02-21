@@ -1,58 +1,52 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-import io
 
 # Configuração da página
 st.set_page_config(page_title="PRO-SUPPLY Cloud", layout="wide")
 st.markdown("<h1 style='text-align: center; color: #58a6ff;'>PRO-SUPPLY SMART ANALYTICS</h1>", unsafe_allow_html=True)
 
+# Inicializamos as variáveis como vazias para não dar NameError
+df_prod = pd.DataFrame()
+itens_ativos = []
+
 try:
-    # Estabelecendo conexão
+    # Conexão
     conn = st.connection("gsheets", type=GSheetsConnection)
     
-    # Lendo as abas (Worksheets)
-    # Certifique-se que na planilha os nomes são exatamente "Produtos" e "Respostas"
+    # Lendo a aba de Produtos
     df_prod = conn.read(worksheet="Produtos")
-    df_resp = conn.read(worksheet="Respostas")
     
-    # Limpeza e padronização das colunas
-    df_prod.columns = [c.strip().capitalize() for c in df_prod.columns]
+    # Limpeza básica de nomes de colunas (tira espaços e põe 1ª letra maiúscula)
+    df_prod.columns = [str(c).strip().capitalize() for c in df_prod.columns]
     
-    # Filtrando apenas os itens marcados com 'x' na coluna 'Selecionado'
-    # Importante: A coluna na planilha deve se chamar "Selecionado" e a outra "Produto"
-    itens_ativos = df_prod[df_prod['Selecionado'].notna()]['Produto'].tolist()
-
+    # Tenta criar a lista de itens ativos
+    if 'Selecionado' in df_prod.columns and 'Produto' in df_prod.columns:
+        itens_ativos = df_prod[df_prod['Selecionado'].notna()]['Produto'].tolist()
+    
 except Exception as e:
-    # Se o erro for apenas o código 200, ele ignora e segue adiante
+    # Se der erro 200, a gente ignora porque é um bug visual do Streamlit
     if "200" not in str(e):
-        st.error(f"Erro real de configuração: {e}")
-        st.info("Verifique se os nomes das colunas na planilha são 'Produto' e 'Selecionado'.")
-        st.stop()
-    else:
-        # Se for 200, tentamos carregar os itens mesmo assim
-        try:
-            itens_ativos = df_prod[df_prod['Selecionado'].notna()]['Produto'].tolist()
-        except:
-            itens_ativos = []
+        st.error(f"Erro na Planilha: {e}")
 
-# Interface do App
+# Interface
 aba_f, aba_c = st.tabs(["📋 PORTAL DO FORNECEDOR", "📊 ÁREA DO CLIENTE"])
 
 with aba_f:
     st.subheader("📋 Enviar Cotação")
     if not itens_ativos:
-        st.warning("Nenhum item selecionado para cotação na planilha. Marque um 'x' na coluna Selecionado.")
+        st.info("💡 Nenhum item marcado com 'x' na coluna 'Selecionado' da planilha.")
     else:
         with st.form("form_envio"):
             for item in itens_ativos:
-                st.number_input(f"Preço para: {item}", min_value=0.0, step=0.01, key=item)
-            
-            enviado = st.form_submit_button("Enviar Cotação")
-            if enviado:
-                st.success("Cotação enviada com sucesso!")
+                st.number_input(f"Preço para: {item}", min_value=0.0, step=0.01)
+            if st.form_submit_button("Enviar Cotação"):
+                st.success("Cotação simulada com sucesso!")
 
 with aba_c:
     st.subheader("📊 Visualização de Dados")
-    st.dataframe(df_prod)
+    if not df_prod.empty:
+        st.dataframe(df_prod)
+    else:
+        st.warning("Aguardando carregamento dos dados...")
 

@@ -2,52 +2,40 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-st.set_page_config(page_title="PRO-SUPPLY Cloud", layout="wide")
-st.markdown("<h1 style='text-align: center; color: #58a6ff;'>PRO-SUPPLY SMART ANALYTICS</h1>", unsafe_allow_html=True)
-
-df_prod = pd.DataFrame()
-itens_ativos = []
+st.set_page_config(page_title="PRO-SUPPLY Diagnóstico", layout="wide")
 
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
     
-    # MUDANÇA: Lemos a planilha sem especificar a aba para ele pegar a primeira disponível
-    # ttl=0 força o Google a entregar os dados MAIS RECENTES agora
-    df_prod = conn.read(ttl=0)
+    # 1. TESTE DE CONEXÃO PURA
+    st.write("### 🧪 Teste de Diagnóstico")
     
-    if not df_prod.empty:
-        # Padroniza nomes de colunas (minúsculo e sem espaços)
-        df_prod.columns = [str(c).strip().lower() for c in df_prod.columns]
+    # Vamos tentar ler a aba "Produtos" especificamente de novo
+    # Se falhar, tentamos ler sem aba
+    try:
+        df_prod = conn.read(worksheet="Produtos", ttl=0)
+        st.success("✅ Aba 'Produtos' encontrada e lida!")
+    except:
+        df_prod = conn.read(ttl=0)
+        st.warning("⚠️ Aba 'Produtos' não achada. Lendo a primeira aba disponível.")
+
+    # 2. MOSTRAR O QUE FOI LIDO
+    if df_prod.empty:
+        st.error("❌ A planilha foi lida, mas retornou VAZIA (0 linhas e 0 colunas).")
+        st.info(f"Verifique se o ID nos Secrets é este mesmo: `{st.secrets['connections']['gsheets']['spreadsheet']}`")
+    else:
+        st.write("📊 **Dados encontrados:**")
+        st.dataframe(df_prod)
         
-        # Procura colunas que CONTENHAM a palavra 'produto' e 'selecionado'
+        # Tenta achar os itens com 'x'
+        df_prod.columns = [str(c).strip().lower() for c in df_prod.columns]
         col_p = [c for c in df_prod.columns if 'produto' in c]
         col_s = [c for c in df_prod.columns if 'selecionado' in c]
         
         if col_p and col_s:
-            # Filtra onde a coluna de seleção tem 'x'
-            df_prod[col_s[0]] = df_prod[col_s[0]].astype(str).str.strip().str.lower()
-            itens_ativos = df_prod[df_prod[col_s[0]] == 'x'][col_p[0]].tolist()
-    else:
-        st.warning("Aviso: O Google retornou uma planilha sem dados. Verifique se há conteúdo na primeira aba.")
+            itens = df_prod[df_prod[col_s[0]].astype(str).str.lower().str.strip() == 'x'][col_p[0]].tolist()
+            st.write(f"✅ Itens com 'x' identificados: {itens}")
 
 except Exception as e:
-    if "200" not in str(e):
-        st.error(f"Erro técnico: {e}")
+    st.error(f"Erro crítico: {e}")
 
-# Interface
-aba_f, aba_c = st.tabs(["📋 PORTAL DO FORNECEDOR", "📊 ÁREA DO CLIENTE"])
-
-with aba_f:
-    st.subheader("📋 Enviar Cotação")
-    if not itens_ativos:
-        st.info("💡 Coloque um 'x' na coluna Selecionado da sua planilha e aguarde alguns segundos.")
-    else:
-        with st.form("form_envio"):
-            for item in itens_ativos:
-                st.number_input(f"Preço para: {item}", min_value=0.0, step=0.01)
-            st.form_submit_button("Enviar Cotação")
-
-with aba_c:
-    st.subheader("📊 Visualização de Dados")
-    st.write("Dados detectados na planilha:")
-    st.dataframe(df_prod)

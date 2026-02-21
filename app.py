@@ -3,24 +3,12 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 
-# CONFIGURAÇÃO VISUAL
-st.set_page_config(page_title="PRO-SUPPLY ANALYTICS", layout="wide")
+st.set_page_config(page_title="PRO-SUPPLY SMART ANALYTICS", layout="wide")
 
-st.markdown("""
-    <style>
-    .main { background-color: #0e1117; color: #ffffff; }
-    .neon-text { color: #00d4ff; text-shadow: 0 0 10px #00d4ff; font-weight: bold; text-align: center; }
-    .stButton>button { background: linear-gradient(45deg, #00d4ff, #005f73); color: white; width: 100%; border-radius: 8px; font-weight: bold; }
-    div[data-testid="stExpander"] { border: 1px solid #00d4ff; border-radius: 10px; background-color: #161b22; }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.markdown("<h1 class='neon-text'>PRO-SUPPLY | SMART ANALYTICS</h1>", unsafe_allow_html=True)
-
-# LINK PÚBLICO PARA LEITURA RÁPIDA
+# --- LEITURA RÁPIDA (Public CSV) ---
 URL_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3Extm7GnoMba57gboYO9Lb6s-mUUh10pQF0bH_Wu2Xffq6UfKnAf4iAjxROAtC_iAC2vEM0rYLf9p/pub?output=csv"
 
-@st.cache_data(ttl=2)
+@st.cache_data(ttl=5)
 def carregar_dados():
     try:
         df = pd.read_csv(URL_CSV)
@@ -31,63 +19,76 @@ def carregar_dados():
 
 df_prod = carregar_dados()
 
-aba_fornecedor, aba_analise = st.tabs(["🚀 PORTAL FORNECEDOR", "🛡️ CENTRAL DE ANÁLISE"])
+aba_f, aba_c = st.tabs(["🚀 PORTAL FORNECEDOR", "🛡️ CENTRAL DE ANÁLISE"])
 
-with aba_fornecedor:
+with aba_f:
+    st.subheader("📝 Formulário de Cotação")
+    
+    # Itens selecionados na planilha (coluna Selecionado)
     if not df_prod.empty and 'Selecionado' in df_prod.columns:
-        itens_ativos = df_prod[df_prod['Selecionado'].astype(str).str.lower().str.strip() == 'x']['Produto'].tolist()
+        itens = df_prod[df_prod['Selecionado'].astype(str).str.lower().str.strip() == 'x']['Produto'].tolist()
         
-        if not itens_ativos:
-            st.info("Aguardando seleção de itens na planilha...")
+        if not itens:
+            st.info("Nenhum item marcado com 'x' na planilha.")
         else:
             with st.form("form_vendas"):
-                c1, c2 = st.columns(2)
-                fornecedor = c1.text_input("Empresa/Fornecedor")
-                condicao = c2.selectbox("Condição Comercial", ["Líquido", "Bonificado", "Com ST"])
-                
+                fornecedor = st.text_input("Empresa/Fornecedor")
                 lista_envio = []
-                for item in itens_ativos:
+                
+                for item in itens:
                     with st.expander(f"📦 {item}", expanded=True):
-                        col_u, col_v, col_o = st.columns([1, 1, 2])
-                        v_u = col_u.number_input(f"Preço Unit.", key=f"u_{item}", min_value=0.0)
-                        v_v = col_v.number_input(f"Preço Vol.", key=f"v_{item}", min_value=0.0)
-                        v_o = col_o.text_input(f"Obs.", key=f"o_{item}")
-                        if v_u > 0:
-                            lista_envio.append({"Data": datetime.now().strftime("%d/%m/%Y %H:%M"), "Fornecedor": fornecedor, "Produto": item, "Preco_Unitario": v_u, "Preco_Volume": v_v, "Condicao": condicao, "Observacao": v_o})
-
+                        c1, c2 = st.columns(2)
+                        p_u = c1.number_input(f"Preço Unit.", key=f"u_{item}", min_value=0.0)
+                        obs = c2.text_input(f"Obs.", key=f"o_{item}")
+                        if p_u > 0:
+                            lista_envio.append({
+                                "Data": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                                "Fornecedor": fornecedor,
+                                "Produto": item,
+                                "Preco_Unitario": p_u,
+                                "Observacao": obs
+                            })
+                
                 if st.form_submit_button("🚀 ENVIAR COTAÇÃO"):
                     if not fornecedor:
-                        st.error("Nome do fornecedor obrigatório.")
+                        st.error("Nome do fornecedor é obrigatório.")
                     elif not lista_envio:
                         st.warning("Preencha ao menos um preço.")
                     else:
                         try:
-                            # CONEXÃO COM TRATAMENTO DE CHAVE
+                            # TENTA CONECTAR USANDO OS SECRETS
                             conn = st.connection("gsheets", type=GSheetsConnection)
                             df_novas = pd.DataFrame(lista_envio)
+                            
+                            # Tenta ler a aba 'Respostas' ou cria se não existir
                             try:
-                                historico = conn.read(worksheet="Respostas")
+                                historico = conn.read(worksheet="Respostas", ttl=0)
                                 df_final = pd.concat([historico, df_novas], ignore_index=True)
                             except:
                                 df_final = df_novas
                             
                             conn.create(worksheet="Respostas", data=df_final)
                             st.balloons()
-                            st.success("✅ Cotação enviada!")
+                            st.success("✅ Cotação enviada com sucesso!")
                         except Exception as e:
-                            st.error(f"Erro de conexão: {e}")
+                            st.error(f"Erro de conexão com o Google. Verifique se o e-mail da conta de serviço é EDITOR na sua planilha.")
+                            st.info(f"Detalhe técnico: {e}")
 
-with aba_analise:
-    st.subheader("🛡️ Central de Inteligência")
+with aba_c:
+    st.subheader("🛡️ Inteligência de Suprimentos")
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         df_res = conn.read(worksheet="Respostas")
         if not df_res.empty:
+            st.write("### 🏆 Menores Preços Identificados")
+            # Converte preço para número para comparar
             df_res['Preco_Unitario'] = pd.to_numeric(df_res['Preco_Unitario'], errors='coerce')
             idx = df_res.groupby('Produto')['Preco_Unitario'].idxmin()
-            st.write("### 🏆 Vencedores por Item")
-            st.dataframe(df_res.loc[idx, ['Produto', 'Fornecedor', 'Preco_Unitario', 'Condicao']], use_container_width=True)
+            st.dataframe(df_res.loc[idx, ['Produto', 'Fornecedor', 'Preco_Unitario']], use_container_width=True)
+            
+            with st.expander("📂 Histórico Completo"):
+                st.dataframe(df_res, use_container_width=True)
         else:
-            st.info("Nenhuma resposta recebida ainda.")
+            st.info("Aguardando o primeiro envio para gerar análise.")
     except:
-        st.warning("Aba 'Respostas' não encontrada.")
+        st.warning("Crie a aba chamada 'Respostas' na sua planilha para ver os dados aqui.")

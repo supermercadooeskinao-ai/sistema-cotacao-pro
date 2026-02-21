@@ -7,7 +7,7 @@ st.markdown("<h1 style='text-align: center; color: #58a6ff;'>PRO-SUPPLY SMART AN
 
 # URL da sua planilha publicada como CSV (Substitua pelo link que você copiou no passo 1)
 # O link deve terminar em output=csv
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/17NvaU9jN0OoQ961HApv9hPF80xizXTj1oRCW6hn_dbM/pub?output=csv"
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3Extm7GnoMba57gboYO9Lb6s-mUUh10pQF0bH_Wu2Xffq6UfKnAf4iAjxROAtC_iAC2vEM0rYLf9p/pub?output=csv"
 
 @st.cache_data(ttl=10) # Atualiza a cada 10 segundos
 def carregar_dados():
@@ -44,3 +44,4 @@ try:
 except Exception as e:
     st.error(f"Erro ao ler planilha: {e}")
     st.info("Certifique-se de que a planilha está 'Publicada na Web' como CSV.")
+

@@ -6,100 +6,68 @@ import base64
 
 st.set_page_config(page_title="PRO-SUPPLY SMART ANALYTICS", layout="wide")
 
-# --- FUNÇÃO DE CONEXÃO CORRIGIDA ---
-def conectar():
+def obter_conexao():
     try:
-        # Pega as infos dos secrets
-        s = st.secrets["connections"]["gsheets"]
+        # 1. Recupera a chave base64 e decodifica
+        pk_b64 = st.secrets["connections"]["gsheets"]["private_key_base64"]
+        pk_limpa = base64.b64decode(pk_b64).decode("utf-8")
         
-        # Decodifica a chave privada
-        pk_limpa = base64.b64decode(s["private_key_base64"]).decode("utf-8")
+        # 2. Cria o dicionário de credenciais SEM a chave 'type' para evitar o erro de duplicata
+        # Pegamos tudo dos secrets e apenas atualizamos a private_key
+        conf = dict(st.secrets["connections"]["gsheets"])
+        conf["private_key"] = pk_limpa
         
-        # Monta o dicionário de credenciais EXATAMENTE como o Google quer
-        creds = {
-            "type": "service_account",
-            "project_id": s["project_id"],
-            "private_key_id": s["private_key_id"],
-            "private_key": pk_limpa,
-            "client_email": s["client_email"],
-            "client_id": s["client_id"],
-            "auth_uri": s["auth_uri"],
-            "token_uri": s["token_uri"],
-            "auth_provider_x509_cert_url": s["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": s["client_x509_cert_url"]
-        }
+        # Removemos a chave base64 para não confundir o Google
+        if "private_key_base64" in conf: del conf["private_key_base64"]
         
-        # Cria a conexão passando as credenciais limpas
-        return st.connection("gsheets", type=GSheetsConnection, **creds)
+        # 3. Conecta passando apenas os argumentos necessários
+        return st.connection("gsheets", type=GSheetsConnection, **conf)
     except Exception as e:
-        st.error(f"Erro na configuração: {e}")
+        st.error(f"Erro na conexão: {e}")
         return None
 
-# --- CARREGAMENTO DE DADOS (PÚBLICO) ---
-URL_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3Extm7GnoMba57gboYO9Lb6s-mUUh10pQF0bH_Wu2Xffq6UfKnAf4iAjxROAtC_iAC2vEM0rYLf9p/pub?output=csv"
-
-@st.cache_data(ttl=5)
-def carregar_lista():
-    try:
-        df = pd.read_csv(URL_CSV)
-        df.columns = [str(c).strip().capitalize() for c in df.columns]
-        return df
-    except: return pd.DataFrame()
-
-df_itens = carregar_lista()
-
+# --- Interface ---
 st.title("🛡️ PRO-SUPPLY SMART ANALYTICS")
+
+# Carregamento da lista (Public CSV para ser rápido)
+URL_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3Extm7GnoMba57gboYO9Lb6s-mUUh10pQF0bH_Wu2Xffq6UfKnAf4iAjxROAtC_iAC2vEM0rYLf9p/pub?output=csv"
+df_itens = pd.read_csv(URL_CSV)
 
 aba1, aba2 = st.tabs(["🚀 PORTAL FORNECEDOR", "📊 ANÁLISE"])
 
 with aba1:
-    if not df_itens.empty and 'Selecionado' in df_itens.columns:
-        # Filtra apenas itens marcados com x
-        selecionados = df_itens[df_itens['Selecionado'].astype(str).str.lower().str.strip() == 'x']['Produto'].tolist()
+    with st.form("form_cotacao"):
+        fornecedor = st.text_input("Sua Empresa")
+        # Filtra itens com 'x'
+        itens = df_itens[df_itens['Selecionado'].str.lower() == 'x']['Produto'].tolist()
         
-        if selecionados:
-            with st.form("meu_form"):
-                fornecedor = st.text_input("Sua Empresa")
-                dados_coletados = []
-                
-                for item in selecionados:
-                    with st.expander(f"Item: {item}", expanded=True):
-                        p = st.number_input(f"Preço Unitário", key=f"p_{item}", min_value=0.0)
-                        o = st.text_input(f"Obs", key=f"o_{item}")
-                        if p > 0:
-                            dados_coletados.append({
-                                "Data": datetime.now().strftime("%d/%m/%Y"),
-                                "Fornecedor": fornecedor,
-                                "Produto": item,
-                                "Preco": p,
-                                "Obs": o
-                            })
-                
-                if st.form_submit_button("ENVIAR COTAÇÃO"):
-                    conn = conectar()
-                    if conn and fornecedor and dados_coletados:
-                        df_novos = pd.DataFrame(dados_coletados)
-                        try:
-                            # Tenta ler o que já existe na aba 'Respostas'
-                            try:
-                                existente = conn.read(worksheet="Respostas", ttl=0)
-                                final = pd.concat([existente, df_novos], ignore_index=True)
-                            except: final = df_novos
-                            
-                            conn.create(worksheet="Respostas", data=final)
-                            st.success("✅ Enviado com sucesso!")
-                            st.balloons()
-                        except Exception as e:
-                            st.error(f"Erro ao salvar: {e}")
-        else:
-            st.info("Nenhum item selecionado na planilha mestre.")
+        respostas = []
+        for i in itens:
+            p = st.number_input(f"Preço: {i}", min_value=0.0, step=0.01)
+            if p > 0:
+                respostas.append({"Data": datetime.now().strftime("%d/%m/%Y"), "Fornecedor": fornecedor, "Produto": i, "Preco": p})
+        
+        if st.form_submit_button("SINCRONIZAR"):
+            conn = obter_conexao()
+            if conn and respostas:
+                df_new = pd.DataFrame(respostas)
+                try:
+                    # Tenta ler histórico
+                    try:
+                        old = conn.read(worksheet="Respostas")
+                        df_final = pd.concat([old, df_new], ignore_index=True)
+                    except: df_final = df_new
+                    
+                    conn.create(worksheet="Respostas", data=df_final)
+                    st.success("✅ Sucesso!")
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
 
 with aba2:
-    st.subheader("Central de Inteligência")
-    conn = conectar()
+    conn = obter_conexao()
     if conn:
         try:
-            df_res = conn.read(worksheet="Respostas", ttl=0)
-            st.dataframe(df_res, use_container_width=True)
+            dados = conn.read(worksheet="Respostas")
+            st.dataframe(dados, use_container_width=True)
         except:
-            st.warning("A aba 'Respostas' ainda não foi criada ou está vazia.")
+            st.info("Aba 'Respostas' não encontrada. Ela será criada no primeiro envio.")

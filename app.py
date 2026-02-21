@@ -9,9 +9,11 @@ st.markdown("<h1 style='text-align: center; color: #58a6ff;'>PRO-SUPPLY SMART AN
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
     df_prod = conn.read(worksheet="Produtos")
+    # Remova as linhas de tratamento de colunas temporariamente para testar
+    st.write("Conectado! Colunas encontradas:", df_prod.columns.tolist()) 
     df_resp = conn.read(worksheet="Respostas")
 except Exception as e:
-    st.error("Erro ao carregar os dados da planilha. Verifique os Secrets.")
+    st.error(f"Erro detalhado: {e}")
     st.stop()
 
 aba_f, aba_c = st.tabs(["📩 PORTAL DO FORNECEDOR", "📊 ÁREA DO CLIENTe"])
@@ -55,5 +57,6 @@ with aba_c:
             with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
                 pedido.to_excel(writer, index=False)
             st.download_button(f"📥 Baixar Pedido {escolha}", buf.getvalue(), f"pedido_{escolha}.xlsx")
+
 
 

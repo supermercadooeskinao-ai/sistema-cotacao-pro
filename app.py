@@ -10,30 +10,37 @@ itens_ativos = []
 
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
-    # ttl=0 força o Streamlit a buscar dados novos da planilha toda vez
-    df_prod = conn.read(worksheet="Produtos", ttl=0)
     
-    # MOSTRAR COLUNAS PARA DIAGNÓSTICO (Aparecerá no app para você ver)
-    st.write("Colunas lidas na planilha:", list(df_prod.columns))
+    # MUDANÇA: Lemos a planilha sem especificar a aba para ele pegar a primeira disponível
+    # ttl=0 força o Google a entregar os dados MAIS RECENTES agora
+    df_prod = conn.read(ttl=0)
     
-    # Padronização agressiva
-    df_prod.columns = [str(c).strip().lower() for c in df_prod.columns]
-    
-    if 'selecionado' in df_prod.columns and 'produto' in df_prod.columns:
-        # Filtra linhas onde a coluna selecionado tem 'x' ou 'X'
-        df_prod['selecionado'] = df_prod['selecionado'].astype(str).str.strip().str.lower()
-        itens_ativos = df_prod[df_prod['selecionado'] == 'x']['produto'].tolist()
+    if not df_prod.empty:
+        # Padroniza nomes de colunas (minúsculo e sem espaços)
+        df_prod.columns = [str(c).strip().lower() for c in df_prod.columns]
+        
+        # Procura colunas que CONTENHAM a palavra 'produto' e 'selecionado'
+        col_p = [c for c in df_prod.columns if 'produto' in c]
+        col_s = [c for c in df_prod.columns if 'selecionado' in c]
+        
+        if col_p and col_s:
+            # Filtra onde a coluna de seleção tem 'x'
+            df_prod[col_s[0]] = df_prod[col_s[0]].astype(str).str.strip().str.lower()
+            itens_ativos = df_prod[df_prod[col_s[0]] == 'x'][col_p[0]].tolist()
+    else:
+        st.warning("Aviso: O Google retornou uma planilha sem dados. Verifique se há conteúdo na primeira aba.")
 
 except Exception as e:
     if "200" not in str(e):
-        st.error(f"Erro: {e}")
+        st.error(f"Erro técnico: {e}")
 
+# Interface
 aba_f, aba_c = st.tabs(["📋 PORTAL DO FORNECEDOR", "📊 ÁREA DO CLIENTE"])
 
 with aba_f:
     st.subheader("📋 Enviar Cotação")
     if not itens_ativos:
-        st.info("💡 Nenhum 'x' detectado. Verifique se escreveu 'x' na coluna B.")
+        st.info("💡 Coloque um 'x' na coluna Selecionado da sua planilha e aguarde alguns segundos.")
     else:
         with st.form("form_envio"):
             for item in itens_ativos:
@@ -42,5 +49,5 @@ with aba_f:
 
 with aba_c:
     st.subheader("📊 Visualização de Dados")
+    st.write("Dados detectados na planilha:")
     st.dataframe(df_prod)
-

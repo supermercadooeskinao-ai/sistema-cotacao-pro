@@ -2,48 +2,33 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 import base64
-import json
 
-st.set_page_config(page_title="PRO-SUPPLY", layout="wide")
+st.set_page_config(page_title="PRO-SUPPLY SMART ANALYTICS", layout="wide")
 
-# 1. Função para limpar e montar as credenciais
-def carregar_conexao():
+def conectar():
     try:
+        # 1. Decodifica a chave para garantir que não haja erro de PEM file
         s = st.secrets["connections"]["gsheets"]
-        # Decodifica a chave privada que veio do site Base64
-        private_key = base64.b64decode(s["private_key_base64"]).decode("utf-8")
+        pk = base64.b64decode(s["private_key_base64"]).decode("utf-8")
         
-        # Monta o dicionário de credenciais padrão do Google
-        creds = {
-            "type": "service_account",
-            "project_id": s["project_id"],
-            "private_key_id": s["private_key_id"],
-            "private_key": private_key,
-            "client_email": s["client_email"],
-            "client_id": s["client_id"],
-            "auth_uri": s["auth_uri"],
-            "token_uri": s["token_uri"],
-            "auth_provider_x509_cert_url": s["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": s["client_x509_cert_url"]
-        }
-        
-        # Conecta usando as credenciais como um dicionário único
-        return st.connection("gsheets", type=GSheetsConnection, credentials=creds)
+        # 2. Cria a conexão usando o método mais simples possível
+        # Passamos a private_key decodificada para sobrepor qualquer erro de formato
+        return st.connection("gsheets", type=GSheetsConnection, private_key=pk)
     except Exception as e:
-        st.error(f"Erro ao processar chaves: {e}")
+        st.error(f"Erro técnico na conexão: {e}")
         return None
 
 st.title("🛡️ PRO-SUPPLY SMART ANALYTICS")
 
-conn = carregar_conexao()
+conn = conectar()
 
 if conn:
     try:
         # Tenta ler a aba 'Respostas'
-        # spreadsheet é o ID que está nos seus secrets
-        df = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["spreadsheet"], worksheet="Respostas")
-        st.success("🛰️ SISTEMA ONLINE E CONECTADO!")
-        st.dataframe(df)
+        df = conn.read(worksheet="Respostas", ttl=0)
+        st.success("✅ SISTEMA ONLINE!")
+        st.write("### Dados da Planilha")
+        st.dataframe(df, use_container_width=True)
     except Exception as e:
-        st.warning("⚠️ Aba 'Respostas' não encontrada ou planilha sem acesso.")
-        st.info("Verifique se o e-mail da conta de serviço é EDITOR na planilha.")
+        st.warning("⚠️ Aba 'Respostas' não encontrada.")
+        st.info("Dica: Verifique se você criou a aba com o nome exato 'Respostas' no Google Sheets.")

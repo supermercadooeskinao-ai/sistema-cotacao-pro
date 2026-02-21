@@ -10,42 +10,37 @@ itens_ativos = []
 
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
-    # Lendo a aba Produtos e forçando a atualização dos dados (ttl=0)
+    # ttl=0 força o Streamlit a buscar dados novos da planilha toda vez
     df_prod = conn.read(worksheet="Produtos", ttl=0)
     
-    # Vamos simplificar a busca pelas colunas para evitar erros
-    # Transformamos todos os nomes de colunas em minúsculo e sem espaços
+    # MOSTRAR COLUNAS PARA DIAGNÓSTICO (Aparecerá no app para você ver)
+    st.write("Colunas lidas na planilha:", list(df_prod.columns))
+    
+    # Padronização agressiva
     df_prod.columns = [str(c).strip().lower() for c in df_prod.columns]
     
-    # Agora procuramos as colunas 'produto' e 'selecionado' (em minúsculo)
     if 'selecionado' in df_prod.columns and 'produto' in df_prod.columns:
-        # Filtra quem tem 'x' ou qualquer coisa escrita na coluna selecionado
-        mask = df_prod['selecionado'].notna() & (df_prod['selecionado'].astype(str).str.strip() != "")
-        itens_ativos = df_prod[mask]['produto'].tolist()
+        # Filtra linhas onde a coluna selecionado tem 'x' ou 'X'
+        df_prod['selecionado'] = df_prod['selecionado'].astype(str).str.strip().str.lower()
+        itens_ativos = df_prod[df_prod['selecionado'] == 'x']['produto'].tolist()
 
 except Exception as e:
     if "200" not in str(e):
-        st.error(f"Erro na Planilha: {e}")
+        st.error(f"Erro: {e}")
 
 aba_f, aba_c = st.tabs(["📋 PORTAL DO FORNECEDOR", "📊 ÁREA DO CLIENTE"])
 
 with aba_f:
     st.subheader("📋 Enviar Cotação")
     if not itens_ativos:
-        st.info("💡 Nenhum item com 'x' detectado. Verifique se a coluna B se chama 'Selecionado'.")
-        # Mostra as colunas que o Python está vendo para ajudar a gente a debugar
-        if not df_prod.empty:
-            st.write("Colunas detectadas:", list(df_prod.columns))
+        st.info("💡 Nenhum 'x' detectado. Verifique se escreveu 'x' na coluna B.")
     else:
         with st.form("form_envio"):
             for item in itens_ativos:
                 st.number_input(f"Preço para: {item}", min_value=0.0, step=0.01)
-            if st.form_submit_button("Enviar Cotação"):
-                st.success("Cotação enviada!")
+            st.form_submit_button("Enviar Cotação")
 
 with aba_c:
     st.subheader("📊 Visualização de Dados")
-    if not df_prod.empty:
-        st.dataframe(df_prod)
-
+    st.dataframe(df_prod)
 

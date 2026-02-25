@@ -5,60 +5,61 @@ from datetime import datetime
 
 st.set_page_config(page_title="PRO-SUPPLY SMART SYSTEM", layout="wide")
 
-# Função simples para conectar
+# Conexão automática usando os secrets
 def conectar():
     try:
-        # O Streamlit busca automaticamente os dados em [connections.gsheets]
         return st.connection("gsheets", type=GSheetsConnection)
     except Exception as e:
-        st.error(f"Erro técnico na conexão: {e}")
+        st.error(f"Erro na conexão: {e}")
         return None
 
-st.markdown("<h1 style='text-align: center;'>PRO-SUPPLY SMART SYSTEM</h1>", unsafe_allow_html=True)
+st.title("🛡️ PRO-SUPPLY SMART SYSTEM")
 
-aba_forn, aba_admin = st.tabs(["🚀 PORTAL DO FORNECEDOR", "🛡️ PAINEL DE CONTROLE"])
+aba1, aba2 = st.tabs(["🚀 PORTAL FORNECEDOR", "📊 ANÁLISE"])
 
-with aba_forn:
-    conn = conectar()
+conn = conectar()
+
+with aba1:
     if conn:
         try:
-            # Tenta ler a aba 'Produtos'
-            df_mestre = conn.read(worksheet="Produtos", ttl=0)
-            itens = df_mestre[df_mestre['Cotar'].str.lower() == 'x']['Produto'].tolist()
+            # Lê a aba de produtos
+            df_prod = conn.read(worksheet="Produtos", ttl=0)
+            lista_itens = df_prod[df_prod['Cotar'].str.lower() == 'x']['Produto'].tolist()
             
-            if not itens:
-                st.info("Aguardando lista de produtos...")
+            if not lista_itens:
+                st.info("Aguardando liberação de produtos...")
             else:
-                with st.form("f_cotacao"):
-                    nome = st.text_input("Sua Empresa:")
-                    respostas = []
-                    for item in itens:
-                        p = st.number_input(f"Preço: {item}", min_value=0.0, format="%.2f")
-                        if p > 0:
-                            respostas.append({"Data": datetime.now().strftime("%d/%m/%Y"), "Fornecedor": nome, "Produto": item, "Preco": p})
+                with st.form("form_forn"):
+                    fornecedor = st.text_input("Nome da sua Empresa:")
+                    dados_envio = []
+                    for item in lista_itens:
+                        preco = st.number_input(f"Preço Unitário: {item}", min_value=0.0, format="%.2f")
+                        if preco > 0:
+                            dados_envio.append({"Data": datetime.now().strftime("%d/%m/%Y"), "Fornecedor": fornecedor, "Produto": item, "Preco": preco})
                     
-                    if st.form_submit_button("ENVIAR"):
-                        if nome and respostas:
+                    if st.form_submit_button("ENVIAR PREÇOS"):
+                        if fornecedor and dados_envio:
                             try:
-                                try: hist = conn.read(worksheet="Respostas", ttl=0)
-                                except: hist = pd.DataFrame()
-                                df_final = pd.concat([hist, pd.DataFrame(respostas)], ignore_index=True)
-                                conn.create(worksheet="Respostas", data=df_final)
-                                st.success("Enviado!")
+                                try: existente = conn.read(worksheet="Respostas", ttl=0)
+                                except: existente = pd.DataFrame()
+                                
+                                df_novo = pd.concat([existente, pd.DataFrame(dados_envio)], ignore_index=True)
+                                conn.create(worksheet="Respostas", data=df_novo)
+                                st.balloons()
+                                st.success("Cotação enviada!")
                             except Exception as e: st.error(f"Erro ao salvar: {e}")
         except:
-            st.warning("Certifique-se que a aba 'Produtos' existe no Google Sheets.")
+            st.error("Crie a aba 'Produtos' no seu Google Sheets.")
 
-with aba_admin:
+with aba2:
     senha = st.text_input("Senha Admin:", type="password")
     if senha == "PRO2026":
-        conn = conectar()
         if conn:
-            st.write("### Itens para Cotação")
+            st.subheader("Menores Preços")
             try:
-                df_p = conn.read(worksheet="Produtos", ttl=0)
-                novo_df = st.data_editor(df_p)
-                if st.button("Salvar Alterações"):
-                    conn.create(worksheet="Produtos", data=novo_df)
-                    st.success("Lista atualizada!")
-            except: st.error("Erro ao carregar aba 'Produtos'")
+                df_res = conn.read(worksheet="Respostas", ttl=0)
+                if not df_res.empty:
+                    vencedores = df_res.loc[df_res.groupby('Produto')['Preco'].idxmin()]
+                    st.dataframe(vencedores, use_container_width=True)
+                else: st.info("Sem respostas ainda.")
+            except: st.info("Aba 'Respostas' vazia.")

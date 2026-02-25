@@ -8,10 +8,7 @@ from datetime import datetime
 # --- FUNÇÃO DE CONEXÃO SEGURA ---
 def conectar_google():
     try:
-        # Decodifica a chave para evitar erro de PEM/Length
         pk = base64.b64decode(st.secrets["google_pk_base64"]).decode("utf-8")
-        
-        # Monta credenciais manualmente para evitar erro de 'multiple values for type'
         creds = {
             "type": "service_account",
             "project_id": st.secrets["google_project_id"],
@@ -46,47 +43,51 @@ if not st.session_state.logado:
 st.set_page_config(page_title="PRO-SUPPLY | Smart Analytics", page_icon="⚡", layout="wide")
 
 # Inicialização de Estados
-if 'dados_industrias' not in st.session_state: st.session_state.dados_industrias = {}
+if 'lista_geral_produtos' not in st.session_state: st.session_state.lista_geral_produtos = []
 if 'itens_para_cotar' not in st.session_state: st.session_state.itens_para_cotar = []
 
 # Título Principal
 st.markdown("<h1 style='text-align: center; color: #58a6ff;'>SISTEMA INTELIGENTE DE COTAÇÕES</h1>", unsafe_allow_html=True)
 
-aba_c, aba_f, aba_r = st.tabs(["🎯 Seleção Estratégica", "📩 Painel Fornecedor", "📊 Relatório Final"])
+aba_c, aba_f, aba_r = st.tabs(["🎯 Seleção de Itens", "📩 Painel Fornecedor", "📊 Relatório Final"])
 
 with aba_c:
-    st.subheader("Configurar Cotação")
+    st.subheader("Configurar Itens para Cotação")
     with st.sidebar:
+        st.info("O Excel deve ter uma coluna chamada 'Produto'")
         arquivo = st.file_uploader("📂 Importar Base Excel", type=['xlsx'])
         if arquivo:
             df_imp = pd.read_excel(arquivo)
-            for _, linha in df_imp.iterrows():
-                ind = str(linha['Indústria']).strip()
-                prod = str(linha['Produto']).strip()
-                if ind not in st.session_state.dados_industrias: st.session_state.dados_industrias[ind] = []
-                if prod not in st.session_state.dados_industrias[ind]: st.session_state.dados_industrias[ind].append(prod)
-            st.success("Base Carregada!")
+            if 'Produto' in df_imp.columns:
+                # Remove duplicados e valores vazios
+                st.session_state.lista_geral_produtos = sorted(df_imp['Produto'].dropna().unique().tolist())
+                st.success(f"{len(st.session_state.lista_geral_produtos)} produtos carregados!")
+            else:
+                st.error("Coluna 'Produto' não encontrada no Excel.")
 
-    if st.session_state.dados_industrias:
-        ind_sel = st.selectbox("Escolha a Indústria", sorted(st.session_state.dados_industrias.keys()))
-        escolhidos = st.multiselect("Produtos:", st.session_state.dados_industrias[ind_sel])
-        if st.button("CONFIRMAR LISTA"):
+    if st.session_state.lista_geral_produtos:
+        escolhidos = st.multiselect("Selecione os produtos que deseja cotar agora:", st.session_state.lista_geral_produtos)
+        if st.button("CONFIRMAR LISTA SELECIONADA"):
             st.session_state.itens_para_cotar = escolhidos
+            st.success(f"Lista com {len(escolhidos)} itens pronta para o fornecedor!")
             st.toast("Lista atualizada!")
+    else:
+        st.info("Importe um arquivo Excel ao lado para começar.")
 
 with aba_f:
     if not st.session_state.itens_para_cotar:
-        st.warning("Selecione os itens na primeira aba.")
+        st.warning("Selecione os itens na primeira aba primeiro.")
     else:
         with st.form("form_f"):
-            f_nome = st.text_input("Nome do Fornecedor")
-            f_tipo = st.selectbox("Condição", ["NF", "Líquido", "Bonificado"])
+            f_nome = st.text_input("Nome do Fornecedor / Distribuidora")
+            f_tipo = st.selectbox("Condição Comercial", ["NF", "Líquido", "Bonificado", "Outros"])
             dados_temp = []
             
+            st.write("---")
             for item in st.session_state.itens_para_cotar:
                 c1, c2 = st.columns([1, 2])
-                p = c1.number_input(f"Preço {item}", min_value=0.0, format="%.2f", key=f"p_{item}")
-                o = c2.text_input(f"Obs {item}", key=f"o_{item}")
+                p = c1.number_input(f"Preço Unit. ({item})", min_value=0.0, format="%.2f", key=f"p_{item}")
+                o = c2.text_input(f"Observação", key=f"o_{item}", placeholder="Ex: Validade, lote...")
                 if p > 0:
                     dados_temp.append({
                         'Data': datetime.now().strftime("%d/%m/%Y"),
@@ -97,44 +98,45 @@ with aba_f:
                         'Obs': o
                     })
             
-            if st.form_submit_button("🚀 ENVIAR COTAÇÃO PARA NUVEM"):
+            st.write("---")
+            if st.form_submit_button("🚀 ENVIAR PREÇOS PARA O GOOGLE SHEETS"):
                 if not f_nome:
-                    st.error("Identifique o fornecedor!")
+                    st.error("Por favor, preencha o nome do fornecedor.")
+                elif not dados_temp:
+                    st.warning("Insira pelo menos um preço antes de enviar.")
                 else:
                     conn = conectar_google()
                     if conn:
                         try:
-                            # 1. Lê o que já existe
+                            # Tenta ler a planilha existente ou cria nova se falhar
                             try:
                                 existente = conn.read(spreadsheet=st.secrets["id_planilha"], worksheet="Respostas")
                             except:
                                 existente = pd.DataFrame()
                             
-                            # 2. Junta com os novos dados
                             df_novos = pd.DataFrame(dados_temp)
                             df_final = pd.concat([existente, df_novos], ignore_index=True)
                             
-                            # 3. Salva de volta
                             conn.create(spreadsheet=st.secrets["id_planilha"], worksheet="Respostas", data=df_final)
                             st.balloons()
-                            st.success("✅ Sincronizado com o Google Sheets!")
+                            st.success("✅ Cotação enviada com sucesso!")
                         except Exception as e:
                             st.error(f"Erro ao salvar: {e}")
 
 with aba_r:
-    st.subheader("📊 Resultados na Nuvem")
+    st.subheader("📊 Histórico de Cotações na Nuvem")
     conn = conectar_google()
     if conn:
         try:
             df_nuvem = conn.read(spreadsheet=st.secrets["id_planilha"], worksheet="Respostas", ttl=0)
             if not df_nuvem.empty:
+                st.write("Abaixo estão todos os preços registrados até agora:")
                 st.dataframe(df_nuvem, use_container_width=True)
                 
-                # Botão para limpar (Opcional)
-                if st.button("Limpar Histórico da Nuvem"):
-                    conn.create(spreadsheet=st.secrets["id_planilha"], worksheet="Respostas", data=pd.DataFrame(columns=df_nuvem.columns))
-                    st.rerun()
+                # Exportação rápida
+                csv = df_nuvem.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Baixar tudo em CSV", csv, "cotacoes_completas.csv", "text/csv")
             else:
-                st.info("Nenhum dado encontrado na aba 'Respostas'.")
+                st.info("Nenhum dado registrado na nuvem ainda.")
         except:
-            st.warning("Aba 'Respostas' não encontrada na planilha.")
+            st.warning("Aba 'Respostas' não detectada na planilha Google.")

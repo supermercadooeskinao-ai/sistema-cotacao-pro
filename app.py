@@ -1,112 +1,129 @@
 import streamlit as st
 import pandas as pd
-import io
+from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
+import base64
 
-# --- SEGURANÇA COMERCIAL ---
-CHAVE_ACESSO = "PRO2026"
+# --- CONFIGURAÇÃO INICIAL ---
+st.set_page_config(page_title="PRO-SUPPLY | Portal", layout="wide")
 
-if 'logado' not in st.session_state:
-    st.session_state.logado = False
+# --- SEGURANÇA (Senha para você, acesso livre para fornecedor via abas) ---
+CHAVE_MESTRA = "PRO2026"
 
-if not st.session_state.logado:
-    st.set_page_config(page_title="Ativação", page_icon="🔐")
-    st.markdown("<h2 style='text-align: center;'>🔐 Ativação de Software</h2>", unsafe_allow_html=True)
-    senha = st.text_input("Insira sua Chave de Licença:", type="password")
-    if st.button("Ativar Sistema"):
-        if senha == CHAVE_ACESSO:
-            st.session_state.logado = True
-            st.rerun()
-        else:
-            st.error("Chave inválida.")
-    st.stop()
-
-# --- CONFIGURAÇÃO DO APP ---
-st.set_page_config(page_title="PRO-SUPPLY | WhatsApp Edition", page_icon="⚡", layout="wide")
-
-# Inicialização de Estados (Memória Temporária)
-if 'historico_local' not in st.session_state:
-    st.session_state.historico_local = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço', 'Data'])
-
-st.markdown("<h1 style='text-align: center; color: #58a6ff;'>SISTEMA DE ANÁLISE WHATSAPP</h1>", unsafe_allow_html=True)
-
-aba_c, aba_a = st.tabs(["📦 Preparar Itens", "📊 Analisar Respostas"])
-
-with aba_c:
-    st.subheader("1. Carregar Lista de Produtos")
-    arquivo = st.file_uploader("Suba seu Excel (Coluna 'Produto')", type=['xlsx'])
-    
-    if arquivo:
-        try:
-            # O motor 'openpyxl' resolve o erro da sua captura de tela
-            df_imp = pd.read_excel(arquivo, engine='openpyxl')
-            
-            if 'Produto' in df_imp.columns:
-                lista_prods = sorted(df_imp['Produto'].dropna().unique().tolist())
-                selecionados = st.multiselect("Selecione os itens para enviar ao fornecedor:", lista_prods)
-                
-                if selecionados:
-                    st.write("### Texto para copiar e enviar:")
-                    texto_zap = "Olá, segue cotação:\n\n"
-                    for item in selecionados:
-                        texto_zap += f"- {item}: R$ \n"
-                    texto_zap += "\n*Por favor, preencha os valores e responda aqui.*"
-                    
-                    st.text_area("Copie o texto abaixo:", texto_zap, height=250)
-                    st.info("💡 Dica: Cole no WhatsApp do fornecedor e aguarde a resposta dele.")
-            else:
-                st.error("Erro: O Excel precisa ter uma coluna chamada 'Produto'.")
-        except Exception as e:
-            st.error(f"Erro ao ler arquivo: {e}")
-
-with aba_a:
-    st.subheader("2. Colar Respostas e Comparar")
-    c1, c2 = st.columns([1, 1])
-    
-    with c1:
-        f_nome = st.text_input("Nome do Fornecedor:")
-        res_texto = st.text_area("Cole a mensagem do WhatsApp aqui:", height=300, help="Formato: Produto: R$ 0,00")
+# --- FUNÇÃO DE CONEXÃO BLINDADA ---
+def conectar():
+    try:
+        # Pega a chave Base64 dos Secrets e decodifica
+        pk_b64 = st.secrets["connections"]["gsheets"]["private_key_base64"]
+        pk = base64.b64decode(pk_b64).decode("utf-8")
         
-        if st.button("Processar Resposta"):
-            if f_nome and res_texto:
-                linhas = res_texto.split('\n')
-                novos_dados = []
-                for linha in linhas:
-                    if ':' in linha and 'R$' in linha:
-                        try:
-                            item = linha.split(':')[0].replace('-', '').strip()
-                            # Limpa o valor para converter em número
-                            valor = linha.split('R$')[1].strip().replace('.', '').replace(',', '.')
-                            novos_dados.append({
-                                'Fornecedor': f_nome,
-                                'Produto': item,
-                                'Preço': float(valor),
-                                'Data': datetime.now().strftime("%d/%m/%Y")
-                            })
-                        except: continue
-                
-                if novos_dados:
-                    df_n = pd.DataFrame(novos_dados)
-                    st.session_state.historico_local = pd.concat([st.session_state.historico_local, df_n], ignore_index=True)
-                    st.success(f"Dados de {f_nome} salvos com sucesso!")
-                else:
-                    st.error("Não encontrei preços no texto. Verifique se tem 'Produto: R$ 00,00'")
+        creds = {
+            "type": "service_account",
+            "project_id": st.secrets["connections"]["gsheets"]["project_id"],
+            "private_key": pk,
+            "client_email": st.secrets["connections"]["gsheets"]["client_email"],
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+        return st.connection("gsheets", type=GSheetsConnection, credentials=creds)
+    except Exception as e:
+        st.error(f"Erro de conexão com a nuvem: {e}")
+        return None
 
-    with c2:
-        st.write("### 🏆 Melhores Preços Encontrados")
-        if not st.session_state.historico_local.empty:
-            df_res = st.session_state.historico_local
-            # Pega o menor preço para cada produto
-            venc = df_res.loc[df_res.groupby('Produto')['Preço'].idxmin()]
-            st.dataframe(venc[['Produto', 'Fornecedor', 'Preço']], use_container_width=True)
+# --- INTERFACE ---
+st.markdown("<h1 style='text-align: center; color: #00d4ff;'>PRO-SUPPLY SMART SYSTEM</h1>", unsafe_allow_html=True)
+
+aba_fornecedor, aba_gestao = st.tabs(["🚀 PORTAL DO FORNECEDOR", "🛡️ PAINEL DE CONTROLE (ADMIN)"])
+
+# --- ABA 1: ONDE O FORNECEDOR RESPONDE ---
+with aba_fornecedor:
+    st.subheader("Preenchimento de Cotação")
+    
+    # Vamos ler os itens que você (Admin) marcou para cotar
+    conn = conectar()
+    if conn:
+        try:
+            # Lendo a planilha mestre (Aba 'Produtos')
+            df_mestre = conn.read(worksheet="Produtos", ttl=0)
             
-            total_economia = df_res.groupby('Produto')['Preço'].max().sum() - venc['Preço'].sum()
-            st.metric("Economia Estimada", f"R$ {total_economia:.2f}")
-        else:
-            st.info("Cole os dados ao lado para ver a análise.")
+            # Filtra apenas o que você marcou com 'x' na coluna 'Cotar'
+            itens_liberados = df_mestre[df_mestre['Cotar'].str.lower() == 'x']['Produto'].tolist()
+            
+            if not itens_liberados:
+                st.info("Aguardando liberação de itens pelo administrador.")
+            else:
+                with st.form("portal_forn"):
+                    nome_empresa = st.text_input("Sua Empresa / Fornecedor:")
+                    respostas = []
+                    
+                    st.write("Insira os valores abaixo:")
+                    for item in itens_liberados:
+                        col1, col2 = st.columns([2, 1])
+                        preco = col1.number_input(f"Preço Unitário: {item}", min_value=0.0, format="%.2f", key=f"p_{item}")
+                        obs = col2.text_input(f"Obs:", key=f"o_{item}")
+                        
+                        if preco > 0:
+                            respostas.append({
+                                "Data": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                                "Fornecedor": nome_empresa,
+                                "Produto": item,
+                                "Preco": preco,
+                                "Observacao": obs
+                            })
+                    
+                    if st.form_submit_button("✅ FINALIZAR E ENVIAR COTAÇÃO"):
+                        if not nome_empresa:
+                            st.error("Por favor, identifique sua empresa.")
+                        elif not respostas:
+                            st.warning("Preencha pelo menos um preço.")
+                        else:
+                            # Salva na aba 'Respostas'
+                            try:
+                                try:
+                                    historico = conn.read(worksheet="Respostas")
+                                except:
+                                    historico = pd.DataFrame()
+                                
+                                df_final = pd.concat([historico, pd.DataFrame(respostas)], ignore_index=True)
+                                conn.create(worksheet="Respostas", data=df_final)
+                                st.balloons()
+                                st.success("Cotação enviada com sucesso! Obrigado.")
+                            except Exception as e:
+                                st.error(f"Erro ao salvar: {e}")
+        except:
+            st.error("Erro ao ler aba 'Produtos'. Verifique se ela existe no Google Sheets.")
 
-if not st.session_state.historico_local.empty:
-    st.write("---")
-    if st.button("Limpar Histórico e Nova Cotação"):
-        st.session_state.historico_local = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço', 'Data'])
-        st.rerun()
+# --- ABA 2: ONDE VOCÊ GERENCIA ---
+with aba_gestao:
+    senha = st.text_input("Senha Administrativa:", type="password")
+    if senha == CHAVE_MESTRA:
+        st.success("Acesso Liberado")
+        
+        conn = conectar()
+        if conn:
+            # 1. Gerenciar itens para cotar
+            st.write("### 1. Selecionar Itens para o Portal")
+            try:
+                df_prod = conn.read(worksheet="Produtos")
+                st.data_editor(df_prod, key="editor_prod", use_container_width=True)
+                if st.button("Atualizar Lista no Portal"):
+                    conn.create(worksheet="Produtos", data=st.session_state.editor_prod)
+                    st.toast("Portal Atualizado!")
+            except:
+                st.warning("Crie uma aba chamada 'Produtos' com as colunas: Produto, Cotar")
+
+            st.write("---")
+            
+            # 2. Analisar Resultados
+            st.write("### 2. Análise de Preços (Menor Valor)")
+            try:
+                df_res = conn.read(worksheet="Respostas", ttl=0)
+                if not df_res.empty:
+                    # Lógica para achar o vencedor
+                    venc = df_res.loc[df_res.groupby('Produto')['Preco'].idxmin()]
+                    st.dataframe(venc, use_container_width=True)
+                else:
+                    st.info("Nenhuma resposta recebida ainda.")
+            except:
+                st.info("Aba 'Respostas' ainda está vazia.")
+    elif senha != "":
+        st.error("Senha incorreta.")

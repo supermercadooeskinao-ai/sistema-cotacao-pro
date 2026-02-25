@@ -2,31 +2,17 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
-import base64
 
-# --- CONFIGURAÇÃO INICIAL ---
-st.set_page_config(page_title="PRO-SUPPLY | Portal", layout="wide")
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="PRO-SUPPLY | Smart System", layout="wide")
 
-# --- SEGURANÇA (Senha para você, acesso livre para fornecedor via abas) ---
-CHAVE_MESTRA = "PRO2026"
-
-# --- FUNÇÃO DE CONEXÃO BLINDADA ---
-def conectar():
+# --- FUNÇÃO DE CONEXÃO ---
+def obter_conexao():
     try:
-        # Pega a chave Base64 dos Secrets e decodifica
-        pk_b64 = st.secrets["connections"]["gsheets"]["private_key_base64"]
-        pk = base64.b64decode(pk_b64).decode("utf-8")
-        
-        creds = {
-            "type": "service_account",
-            "project_id": st.secrets["connections"]["gsheets"]["project_id"],
-            "private_key": pk,
-            "client_email": st.secrets["connections"]["gsheets"]["client_email"],
-            "token_uri": "https://oauth2.googleapis.com/token",
-        }
-        return st.connection("gsheets", type=GSheetsConnection, credentials=creds)
+        # Aqui o Streamlit já lê a private_key dos secrets automaticamente
+        return st.connection("gsheets", type=GSheetsConnection)
     except Exception as e:
-        st.error(f"Erro de conexão com a nuvem: {e}")
+        st.error(f"Erro de Conexão com a Nuvem: {e}")
         return None
 
 # --- INTERFACE ---
@@ -34,96 +20,87 @@ st.markdown("<h1 style='text-align: center; color: #00d4ff;'>PRO-SUPPLY SMART SY
 
 aba_fornecedor, aba_gestao = st.tabs(["🚀 PORTAL DO FORNECEDOR", "🛡️ PAINEL DE CONTROLE (ADMIN)"])
 
-# --- ABA 1: ONDE O FORNECEDOR RESPONDE ---
+# --- ABA 1: PORTAL DO FORNECEDOR ---
 with aba_fornecedor:
-    st.subheader("Preenchimento de Cotação")
-    
-    # Vamos ler os itens que você (Admin) marcou para cotar
-    conn = conectar()
+    st.subheader("📝 Preenchimento de Cotação")
+    conn = obter_conexao()
     if conn:
         try:
-            # Lendo a planilha mestre (Aba 'Produtos')
+            # Tenta ler a aba 'Produtos'
             df_mestre = conn.read(worksheet="Produtos", ttl=0)
             
-            # Filtra apenas o que você marcou com 'x' na coluna 'Cotar'
+            # Filtra itens para cotar
             itens_liberados = df_mestre[df_mestre['Cotar'].str.lower() == 'x']['Produto'].tolist()
             
             if not itens_liberados:
-                st.info("Aguardando liberação de itens pelo administrador.")
+                st.info("Aguardando lista de produtos ser liberada pelo administrador.")
             else:
                 with st.form("portal_forn"):
-                    nome_empresa = st.text_input("Sua Empresa / Fornecedor:")
+                    nome_forn = st.text_input("Sua Empresa / Fornecedor:")
                     respostas = []
                     
-                    st.write("Insira os valores abaixo:")
+                    st.write("---")
                     for item in itens_liberados:
-                        col1, col2 = st.columns([2, 1])
-                        preco = col1.number_input(f"Preço Unitário: {item}", min_value=0.0, format="%.2f", key=f"p_{item}")
-                        obs = col2.text_input(f"Obs:", key=f"o_{item}")
-                        
-                        if preco > 0:
+                        c1, c2 = st.columns([2, 1])
+                        p = c1.number_input(f"Preço Unitário: {item}", min_value=0.0, format="%.2f", key=f"p_{item}")
+                        o = c2.text_input(f"Observação:", key=f"o_{item}")
+                        if p > 0:
                             respostas.append({
                                 "Data": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                                "Fornecedor": nome_empresa,
+                                "Fornecedor": nome_forn,
                                 "Produto": item,
-                                "Preco": preco,
-                                "Observacao": obs
+                                "Preco": p,
+                                "Obs": o
                             })
                     
-                    if st.form_submit_button("✅ FINALIZAR E ENVIAR COTAÇÃO"):
-                        if not nome_empresa:
-                            st.error("Por favor, identifique sua empresa.")
+                    if st.form_submit_button("✅ ENVIAR COTAÇÃO"):
+                        if not nome_forn:
+                            st.error("Identifique a sua empresa.")
                         elif not respostas:
-                            st.warning("Preencha pelo menos um preço.")
+                            st.warning("Insira pelo menos um preço.")
                         else:
-                            # Salva na aba 'Respostas'
-                            try:
-                                try:
-                                    historico = conn.read(worksheet="Respostas")
-                                except:
-                                    historico = pd.DataFrame()
-                                
-                                df_final = pd.concat([historico, pd.DataFrame(respostas)], ignore_index=True)
-                                conn.create(worksheet="Respostas", data=df_final)
-                                st.balloons()
-                                st.success("Cotação enviada com sucesso! Obrigado.")
-                            except Exception as e:
-                                st.error(f"Erro ao salvar: {e}")
-        except:
-            st.error("Erro ao ler aba 'Produtos'. Verifique se ela existe no Google Sheets.")
+                            # Tenta ler o que já existe em 'Respostas'
+                            try: 
+                                hist = conn.read(worksheet="Respostas", ttl=0)
+                            except: 
+                                hist = pd.DataFrame()
+                            
+                            df_final = pd.concat([hist, pd.DataFrame(respostas)], ignore_index=True)
+                            conn.create(worksheet="Respostas", data=df_final)
+                            st.balloons()
+                            st.success("Cotação enviada com sucesso!")
+        except Exception as e:
+            st.error(f"Erro ao acessar aba 'Produtos': {e}. Verifique se ela existe no Google Sheets.")
 
-# --- ABA 2: ONDE VOCÊ GERENCIA ---
+# --- ABA 2: GESTÃO (ADMIN) ---
 with aba_gestao:
-    senha = st.text_input("Senha Administrativa:", type="password")
-    if senha == CHAVE_MESTRA:
-        st.success("Acesso Liberado")
-        
-        conn = conectar()
+    senha = st.text_input("Senha de Acesso:", type="password")
+    if senha == "PRO2026":
+        st.subheader("🛡️ Gestão de Compras")
+        conn = obter_conexao()
         if conn:
-            # 1. Gerenciar itens para cotar
-            st.write("### 1. Selecionar Itens para o Portal")
-            try:
-                df_prod = conn.read(worksheet="Produtos")
-                st.data_editor(df_prod, key="editor_prod", use_container_width=True)
-                if st.button("Atualizar Lista no Portal"):
-                    conn.create(worksheet="Produtos", data=st.session_state.editor_prod)
-                    st.toast("Portal Atualizado!")
-            except:
-                st.warning("Crie uma aba chamada 'Produtos' com as colunas: Produto, Cotar")
-
-            st.write("---")
-            
-            # 2. Analisar Resultados
-            st.write("### 2. Análise de Preços (Menor Valor)")
+            # 1. Analisar Respostas
+            st.write("### 📊 Comparativo de Preços")
             try:
                 df_res = conn.read(worksheet="Respostas", ttl=0)
                 if not df_res.empty:
-                    # Lógica para achar o vencedor
                     venc = df_res.loc[df_res.groupby('Produto')['Preco'].idxmin()]
                     st.dataframe(venc, use_container_width=True)
                 else:
                     st.info("Nenhuma resposta recebida ainda.")
             except:
-                st.info("Aba 'Respostas' ainda está vazia.")
+                st.info("Aba 'Respostas' sem dados.")
+            
+            # 2. Gerir Produtos
+            st.write("---")
+            st.write("### 📦 Lista de Itens (Coloque 'x' para mostrar ao fornecedor)")
+            try:
+                df_prod = conn.read(worksheet="Produtos", ttl=0)
+                edicao = st.data_editor(df_prod, use_container_width=True)
+                if st.button("Atualizar Portal"):
+                    conn.create(worksheet="Produtos", data=edicao)
+                    st.success("Portal atualizado!")
+            except:
+                st.warning("Certifique-se que a aba 'Produtos' existe com as colunas: Produto, Cotar")
     elif senha != "":
         st.error("Senha incorreta.")

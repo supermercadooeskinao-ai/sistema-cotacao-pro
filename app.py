@@ -27,7 +27,7 @@ if 'logado' not in st.session_state:
     st.session_state.logado = False
 
 # --- 3. INTERFACE ---
-st.markdown("<h1 style='text-align: center; color: #58a6ff;'>PRO-SUPPLY SMART ANALYTICS</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #58a6ff;'>COTA FACIL - SMART ANALYTICS</h1>", unsafe_allow_html=True)
 
 aba_f, aba_c, aba_r = st.tabs(["📩 PAINEL DO FORNECEDOR", "🔐 ÁREA DO CLIENTE", "📊 RELATÓRIO FINAL"])
 
@@ -124,4 +124,5 @@ with aba_r:
         if st.button("🗑️ Limpar Tudo"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
             st.rerun()
+
 

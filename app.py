@@ -5,11 +5,11 @@ import urllib.parse
 import io
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="PRO-SUPPLY | Smart Analytics", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="COTA FACIL | Smart Analytics", layout="wide", page_icon="⚡")
 
 # --- CONFIGURAÇÕES DO USUÁRIO ---
-URL_PLANILHA = "COLE_AQUI_O_SEU_LINK_DO_GOOGLE_CSV"
-TELEFONE_DESTINO = "5511999999999" 
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3Extm7GnoMba57gboYO9Lb6s-mUUh10pQF0bH_Wu2Xffq6UfKnAf4iAjxROAtC_iAC2vEM0rYLf9p/pub?output=csv"
+TELEFONE_DESTINO = "5574988391826" 
 
 # --- 2. FUNÇÕES DE DADOS ---
 def carregar_dados_google():
@@ -124,3 +124,4 @@ with aba_r:
         if st.button("🗑️ Limpar Tudo"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
             st.rerun()
+

@@ -15,7 +15,7 @@ TELEFONE_SUPORTE = "5511999999999" # Seu número para quem for bloqueado
 TELEFONE_DESTINO_COTACAO = "5574988391826" # Número do cliente que recebe as cotações
 
 # --- 2. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="PRO-SUPPLY | Smart Analytics", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="COTA FÁCIL | Smart Analytics", layout="wide", page_icon="⚡")
 
 # Estilização CSS para garantir legibilidade e visual moderno
 st.markdown("""
@@ -153,5 +153,6 @@ with aba_r:
         if st.button("🗑️ RESETAR SISTEMA"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
             st.rerun()
+
 
 

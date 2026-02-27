@@ -26,8 +26,8 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- CONFIGURAÇÕES DO USUÁRIO ---
-URL_PLANILHA = "COLE_AQUI_O_SEU_LINK_DO_GOOGLE_CSV"
-TELEFONE_DESTINO = "5511999999999" 
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3Extm7GnoMba57gboYO9Lb6s-mUUh10pQF0bH_Wu2Xffq6UfKnAf4iAjxROAtC_iAC2vEM0rYLf9p/pub?output=csv"
+TELEFONE_DESTINO = "5574988391826" 
 
 # --- 2. FUNÇÕES DE DADOS ---
 def carregar_dados_google():
@@ -167,3 +167,4 @@ with aba_r:
         if col_exp2.button("🗑️ RESETAR TODAS AS COTAÇÕES"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
             st.rerun()
+

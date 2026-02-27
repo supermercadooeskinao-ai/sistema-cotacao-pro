@@ -4,6 +4,44 @@ import time
 import urllib.parse
 import io
 
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="PRO-SUPPLY | Smart Analytics", layout="wide", page_icon="⚡")
+
+# --- URL DA PLANILHA (Mantenha o seu link CSV aqui) ---
+URL_PLANILHA_PRODUTOS = "COLE_AQUI_O_LINK_DA_ABA_PRODUTOS_CSV"
+URL_PLANILHA_CONFIG = "COLE_AQUI_O_LINK_DA_ABA_CONFIG_CSV" # Nova aba de trava
+
+# --- FUNÇÃO DE VERIFICAÇÃO DE ASSINATURA ---
+def verificar_assinatura():
+    try:
+        # Tenta ler o status na aba Config
+        df_config = pd.read_csv(f"{URL_PLANILHA_CONFIG}&cache={int(time.time())}")
+        status = df_config.iloc[0, 0].strip().upper() # Lê a célula A2
+        return status
+    except:
+        return "ATIVO" # Por segurança, se der erro na leitura, ele libera
+
+# --- VALIDAÇÃO DE ACESSO ---
+status_cliente = verificar_assinatura()
+
+if status_cliente == "BLOQUEADO":
+    st.error("### ⚠️ ACESSO SUSPENSO")
+    st.info("Identificamos que sua assinatura expirou ou há uma pendência financeira.")
+    st.warning("Para reativar seu acesso e não perder seus dados, entre em contato com o suporte agora.")
+    st.link_button("📲 FALAR COM SUPORTE (FINANCEIRO)", "https://wa.me/SEU_TELEFONE_AQUI")
+    st.stop() # PARA O CÓDIGO AQUI E NÃO MOSTRA MAIS NADA
+
+# ----------------------------------------------------------------
+# DAQUI PARA BAIXO SEGUE O SEU CÓDIGO NORMAL (INTERFACE E ABAS)
+# ----------------------------------------------------------------
+
+if 'base_analise' not in st.session_state:
+    st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
+if 'logado' not in st.session_state:
+    st.session_state.logado = False
+
+# ... (Restante do código que já ajustamos antes)
+
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="COTA FACIL | Smart Analytics", layout="wide", page_icon="⚡")
 
@@ -147,4 +185,5 @@ with aba_r:
         if st.button("🗑️ RESETAR SISTEMA"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
             st.rerun()
+
 

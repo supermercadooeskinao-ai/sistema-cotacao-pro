@@ -5,7 +5,7 @@ import urllib.parse
 import io
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="PRO-SUPPLY | Smart Analytics", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="COTA FACIL | Smart Analytics", layout="wide", page_icon="⚡")
 
 # --- ESTILIZAÇÃO CUSTOMIZADA (CSS) ---
 st.markdown("""
@@ -167,4 +167,5 @@ with aba_r:
         if col_exp2.button("🗑️ RESETAR TODAS AS COTAÇÕES"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
             st.rerun()
+
 

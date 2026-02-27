@@ -8,7 +8,7 @@ import io
 # 1. CONFIGURAÇÕES FIXAS (SUA MATRIZ OFICIAL)
 # =================================================================
 # Quando vender para um novo cliente, mude APENAS estas duas linhas:
-ID_CLIENTE_ATUAL = "Restaurante_A" 
+ID_CLIENTE_ATUAL = "Restaurante A" 
 URL_PLANILHA_PRODUTOS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3Extm7GnoMba57gboYO9Lb6s-mUUh10pQF0bH_Wu2Xffq6UfKnAf4iAjxROAtC_iAC2vEM0rYLf9p/pub?output=csv"
 
 # Seus dados mestres configurados
@@ -220,3 +220,4 @@ with aba_r:
         if st.button("🗑️ ZERAR TUDO E COMEÇAR NOVA COMPRA"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
             st.rerun()
+

@@ -51,13 +51,24 @@ def verificar_acesso():
 
 def carregar_produtos():
     try:
+        # O link com o cache força o Google a mostrar a versão mais nova da planilha
         url = f"{URL_PLANILHA_PRODUTOS}&cache={int(time.time())}"
         df = pd.read_csv(url)
+        
+        # Limpa os nomes das colunas (tira espaços extras)
         df.columns = [c.strip().capitalize() for c in df.columns]
-        # Garante que a coluna Quantidade exista
-        if 'Quantidade' not in df.columns: df['Quantidade'] = 1
+        
+        # SE A COLUNA QUANTIDADE NÃO EXISTIR NA PLANILHA, O CÓDIGO CRIA UMA COM VALOR 1
+        if 'Quantidade' not in df.columns:
+            df['Quantidade'] = 1
+            
+        # Garante que onde estiver vazio na quantidade, vire o número 1
+        df['Quantidade'] = df['Quantidade'].fillna(1)
+        
         return df
-    except: return pd.DataFrame(columns=["Produto", "Selecionado", "Quantidade"])
+    except Exception as e:
+        st.error(f"Erro ao ler planilha: {e}")
+        return pd.DataFrame(columns=["Produto", "Selecionado", "Quantidade"])
 
 # --- TRAVA ---
 if verificar_acesso() == "BLOQUEADO":

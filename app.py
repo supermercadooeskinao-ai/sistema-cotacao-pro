@@ -9,10 +9,10 @@ import io
 ID_CLIENTE_ATUAL = "Restaurante_A" 
 
 # Substitua pelos seus links CSV do Google Sheets
-URL_CONTROLE_MESTRE = "COLE_AQUI_O_LINK_DA_SUA_PLANILHA_MESTRA_CSV"
-URL_PLANILHA_PRODUTOS = "COLE_AQUI_O_LINK_DA_PLANILHA_DE_PRODUTOS_DO_CLIENTE_CSV"
+URL_CONTROLE_MESTRE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSAunSaeCenC0s0AX5aq7DyK8sRlVMDfLQ0TxYLkSZz72uNXf9a-EJ-e4k14Ve6k3Ie4bDqeQte6xhI/pub?output=csv"
+URL_PLANILHA_PRODUTOS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3Extm7GnoMba57gboYO9Lb6s-mUUh10pQF0bH_Wu2Xffq6UfKnAf4iAjxROAtC_iAC2vEM0rYLf9p/pub?output=csv"
 TELEFONE_SUPORTE = "5511999999999" # Seu número para quem for bloqueado
-TELEFONE_DESTINO_COTACAO = "5511888888888" # Número do cliente que recebe as cotações
+TELEFONE_DESTINO_COTACAO = "5574988391826" # Número do cliente que recebe as cotações
 
 # --- 2. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="PRO-SUPPLY | Smart Analytics", layout="wide", page_icon="⚡")
@@ -153,4 +153,5 @@ with aba_r:
         if st.button("🗑️ RESETAR SISTEMA"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
             st.rerun()
+
 

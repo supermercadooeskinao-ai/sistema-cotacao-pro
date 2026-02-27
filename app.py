@@ -71,7 +71,7 @@ if 'logado' not in st.session_state:
     st.session_state.logado = False
 
 # --- 6. INTERFACE PRINCIPAL ---
-st.markdown(f"<h1 style='text-align: center; color: #58a6ff;'>🛡️ PRO-SUPPLY <span style='color: white;'>| {ID_CLIENTE_ATUAL.replace('_', ' ')}</span></h1>", unsafe_allow_html=True)
+st.markdown(f"<h1 style='text-align: center; color: #58a6ff;'>🛡️ COTA FÁCIL <span style='color: white;'>| {ID_CLIENTE_ATUAL.replace('_', ' ')}</span></h1>", unsafe_allow_html=True)
 
 aba_f, aba_c, aba_r = st.tabs(["📩 PAINEL DO FORNECEDOR", "🔐 ÁREA DO CLIENTE", "📊 RELATÓRIO FINAL"])
 
@@ -153,6 +153,7 @@ with aba_r:
         if st.button("🗑️ RESETAR SISTEMA"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
             st.rerun()
+
 
 
 

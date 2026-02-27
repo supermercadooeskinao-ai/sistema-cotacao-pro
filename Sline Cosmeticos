@@ -122,7 +122,7 @@ with aba_c:
     if not st.session_state.logado:
         senha = st.text_input("Senha:", type="password")
         if st.button("ENTRAR"):
-            if senha == "PRO2026": st.session_state.logado = True; st.rerun()
+            if senha == "sline123": st.session_state.logado = True; st.rerun()
     else:
         texto = st.text_area("Cole a mensagem do WhatsApp aqui:", height=200)
         if st.button("📥 PROCESSAR"):

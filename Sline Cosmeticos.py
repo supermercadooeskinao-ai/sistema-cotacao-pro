@@ -165,7 +165,7 @@ with aba_c:
     if not st.session_state.logado:
         senha = st.text_input("Chave de Segurança:", type="password")
         if st.button("ACESSAR SISTEMA"):
-            if senha == "PRO2026":
+            if senha == "sline123":
                 st.session_state.logado = True
                 st.rerun()
     else:
@@ -219,4 +219,5 @@ with aba_r:
         st.markdown("---")
         if st.button("🗑️ ZERAR TUDO E COMEÇAR NOVA COMPRA"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
+
             st.rerun()

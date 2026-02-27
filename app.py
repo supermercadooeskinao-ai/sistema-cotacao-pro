@@ -45,7 +45,7 @@ if 'logado' not in st.session_state:
     st.session_state.logado = False
 
 # --- 3. INTERFACE ---
-st.markdown("<h1 style='text-align: center; color: #1e3a8a;'>🛡️ PRO-SUPPLY <span style='color: #58a6ff;'>SMART ANALYTICS</span></h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #1e3a8a;'>🛡️ COTA FACIL <span style='color: #58a6ff;'>SMART ANALYTICS</span></h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #64748b;'>Gestão Inteligente de Cotações e Pedidos</p>", unsafe_allow_html=True)
 
 aba_f, aba_c, aba_r = st.tabs(["📩 PAINEL DO FORNECEDOR", "🔐 ÁREA DO CLIENTE", "📊 RELATÓRIO FINAL"])
@@ -167,5 +167,6 @@ with aba_r:
         if col_exp2.button("🗑️ RESETAR TODAS AS COTAÇÕES"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço'])
             st.rerun()
+
 
 

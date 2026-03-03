@@ -7,7 +7,7 @@ import io
 # =================================================================
 # 1. CONFIGURAÇÕES FIXAS (SUA MATRIZ OFICIAL)
 # =================================================================
-ID_CLIENTE_ATUAL = "Restaurante_A" 
+ID_CLIENTE_ATUAL = "Restaurante A" 
 URL_PLANILHA_PRODUTOS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3Extm7GnoMba57gboYO9Lb6s-mUUh10pQF0bH_Wu2Xffq6UfKnAf4iAjxROAtC_iAC2vEM0rYLf9p/pub?output=csv"
 URL_CONTROLE_MESTRE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSAunSaeCenC0s0AX5aq7DyK8sRlVMDfLQ0TxYLkSZz72uNXf9a-EJ-e4k14Ve6k3Ie4bDqeQte6xhI/pub?output=csv"
 TELEFONE_SUPORTE = "5574988391826" 
@@ -148,3 +148,4 @@ with aba_r:
         if st.button("🗑️ LIMPAR TUDO"):
             st.session_state.base_analise = pd.DataFrame(columns=['Fornecedor', 'Produto', 'Preço', 'Quantidade'])
             st.rerun()
+

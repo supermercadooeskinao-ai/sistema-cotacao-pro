@@ -8,13 +8,13 @@ import io
 # 1. CONFIGURAÇÕES FIXAS (SUA MATRIZ OFICIAL)
 # =================================================================
 # Quando vender para um novo cliente, mude APENAS estas duas linhas:
-ID_CLIENTE_ATUAL = "Sline Cosmeticos" 
-URL_PLANILHA_PRODUTOS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRRGVltbe10HAsubjJAJH0C2ddt6eNj_MKKLFN6YgURnERgY8k9FrcLMcn3zUIl8Xrgdc386Z5WR5I7/pub?output=csv"
+ID_CLIENTE_ATUAL = "Lar Center" 
+URL_PLANILHA_PRODUTOS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTX04_6hfM2_gEnJPDEN7EDutIFvWedPGBkSgWht6jXj4N827rRMTYs1EygWi_hNWxBvlI5LRj8oDce/pub?output=csv"
 
 # Seus dados mestres configurados
 URL_CONTROLE_MESTRE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSAunSaeCenC0s0AX5aq7DyK8sRlVMDfLQ0TxYLkSZz72uNXf9a-EJ-e4k14Ve6k3Ie4bDqeQte6xhI/pub?output=csv"
 TELEFONE_SUPORTE = "5574988391826" 
-TELEFONE_DESTINO_COTACAO = "557499404294" 
+TELEFONE_DESTINO_COTACAO = "5574988469203" 
 
 # =================================================================
 # 2. CONFIGURAÇÃO DA PÁGINA E ESTILO COMERCIAL (CSS)
@@ -165,7 +165,7 @@ with aba_c:
     if not st.session_state.logado:
         senha = st.text_input("Chave de Segurança:", type="password")
         if st.button("ACESSAR SISTEMA"):
-            if senha == "sline123":
+            if senha == "larcenter123":
                 st.session_state.logado = True
                 st.rerun()
     else:
